@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # PAKAI CONTAINER YG SUDAH ADA ANDROID SDK 34 + BUILD-TOOLS
     container:
       image: ghcr.io/reactivecircus/android-sdk:34.0.0
 
@@ -17,10 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ====== EXTRACT PROJEK (boleh upload ZIP v3 langsung di root) ======
       - name: Extract project from ZIP (if present)
         id: extract
-        shell: bash
         run: |
           set -e
           if [ -f "GuruMaarifDH_v3.zip" ]; then
@@ -39,11 +36,11 @@ jobs:
             echo "No ZIP found, assuming repo already has sources."
             mkdir -p workspace && cp -r . workspace/src || true
           fi
+
           PROJECT_DIR=$(dirname $(find workspace -maxdepth 4 -name settings.gradle -print -quit))
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
           test -n "$PROJECT_DIR" && echo "Project dir: $PROJECT_DIR"
 
-      # ====== PASTIKAN gradle.properties ADA (AndroidX ON) ======
       - name: Ensure gradle.properties
         run: |
           cd "${{ steps.extract.outputs.project_dir }}"
@@ -57,7 +54,6 @@ PROP
           fi
           cat gradle.properties
 
-      # ====== GENERATE GRADLE WRAPPER (kalau belum ada) ======
       - name: Generate Gradle Wrapper if missing
         run: |
           cd "${{ steps.extract.outputs.project_dir }}"
@@ -70,7 +66,6 @@ PROP
             echo "Wrapper exists."
           fi
 
-      # ====== BUILD APK DEBUG ======
       - name: Build Debug APK
         run: |
           cd "${{ steps.extract.outputs.project_dir }}"
