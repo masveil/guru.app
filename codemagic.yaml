@@ -13,26 +13,11 @@ workflows:
       vars:
         MODULE: app
     scripts:
-      - name: Pastikan AndroidX ON (gradle.properties)
-        script: |
-          if [ ! -f gradle.properties ]; then
-            cat > gradle.properties <<'PROP'
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
-org.gradle.daemon=false
-PROP
-          else
-            grep -q "android.useAndroidX=true" gradle.properties || echo "android.useAndroidX=true" >> gradle.properties
-            grep -q "android.enableJetifier=true" gradle.properties || echo "android.enableJetifier=true" >> gradle.properties
-          fi
-          echo "=== gradle.properties ==="
-          cat gradle.properties
-
-      - name: Accept licenses & install komponen SDK
+      - name: Accept licenses & install SDK
         script: |
           yes | sdkmanager --licenses || true
-          sdkmanager --install "platform-tools" "cmdline-tools;latest" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager --install "platform-tools" "cmdline-tools;latest" \
+                               "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build Debug APK
         script: |
