@@ -63,5 +63,3 @@ PROP
         notify:
           success: true
           failure: true
-
-Add codemagic.yaml
