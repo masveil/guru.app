@@ -1,0 +1,92 @@
+name: Build APK (Guru Maarif DH)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure tools (unzip)
+        run: sudo apt-get update && sudo apt-get install -y unzip
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components + accept licenses
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platform-tools" "cmdline-tools;latest" \
+                               "platforms;android-34" "build-tools;34.0.0"
+
+      # ==== Extract the project (support ZIP upload) ====
+      - name: Extract project from ZIP (if present)
+        id: extract
+        shell: bash
+        run: |
+          set -e
+          if [ -f "GuruMaarifDH_v2.zip" ]; then
+            echo "Found ZIP v2, extracting..."
+            mkdir -p workspace
+            unzip -q GuruMaarifDH_v2.zip -d workspace
+          elif [ -f "GuruMaarifDH.zip" ]; then
+            echo "Found ZIP v1, extracting..."
+            mkdir -p workspace
+            unzip -q GuruMaarifDH.zip -d workspace
+          else
+            echo "No ZIP found, assume repo already has sources."
+            mkdir -p workspace && cp -r . workspace/src || true
+          fi
+
+          # Locate the Gradle project (folder containing settings.gradle)
+          PROJECT_DIR=$(dirname $(find workspace -maxdepth 4 -name settings.gradle -print -quit))
+          echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
+          test -n "$PROJECT_DIR" && echo "Project: $PROJECT_DIR"
+
+      - name: Generate Gradle Wrapper if missing
+        run: |
+          cd "${{ steps.extract.outputs.project_dir }}"
+          if [ ! -f "./gradlew" ]; then
+            echo "Gradle wrapper missing -> generating..."
+            curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
+            unzip -q gradle.zip -d $HOME/gradle
+            $HOME/gradle/gradle-8.7/bin/gradle wrapper --gradle-version 8.7
+          else
+            echo "Wrapper exists."
+          fi
+
+      - name: Ensure gradle.properties (AndroidX on)
+        run: |
+          cd "${{ steps.extract.outputs.project_dir }}"
+          if [ ! -f gradle.properties ]; then
+            cat > gradle.properties <<'PROP'
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+org.gradle.daemon=false
+PROP
+          fi
+
+      - name: Build Debug APK
+        run: |
+          cd "${{ steps.extract.outputs.project_dir }}"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuruMaarifDH-debug-apk
+          path: ${{ steps.extract.outputs.project_dir }}/app/build/outputs/apk/debug/app-debug.apk
