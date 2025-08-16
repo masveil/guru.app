@@ -4,7 +4,6 @@ workflows:
     max_build_duration: 30
     environment:
       android:
-        # Minta Android SDK 34 & Build Tools 34
         components:
           - "platform-tools"
           - "build-tools;34.0.0"
@@ -14,12 +13,6 @@ workflows:
       vars:
         MODULE: app
     scripts:
-      - name: Tampilkan struktur repo (cek posisi settings.gradle)
-        script: |
-          pwd
-          ls -la
-          test -f settings.gradle || (echo "settings.gradle tidak ketemu di root repo" && exit 1)
-
       - name: Pastikan AndroidX ON (gradle.properties)
         script: |
           if [ ! -f gradle.properties ]; then
@@ -30,22 +23,16 @@ org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
 org.gradle.daemon=false
 PROP
           else
-            # patch aman kalau belum ada flag
             grep -q "android.useAndroidX=true" gradle.properties || echo "android.useAndroidX=true" >> gradle.properties
             grep -q "android.enableJetifier=true" gradle.properties || echo "android.enableJetifier=true" >> gradle.properties
           fi
           echo "=== gradle.properties ==="
           cat gradle.properties
 
-      - name: Accept licenses & install komponen SDK yang diminta
+      - name: Accept licenses & install komponen SDK
         script: |
           yes | sdkmanager --licenses || true
           sdkmanager --install "platform-tools" "cmdline-tools;latest" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Setup Gradle (tanpa wrapper)
-        script: |
-          # Pakai gradle dari Codemagic; tidak pakai ./gradlew untuk menghindari error wrapper
-          gradle --version
 
       - name: Build Debug APK
         script: |
@@ -53,13 +40,3 @@ PROP
 
     artifacts:
       - app/build/outputs/**/*.apk
-      - **/outputs/**/*.aab
-      - **/outputs/**/*.mapping.txt
-
-    publishing:
-      email:
-        recipients:
-          - "you@example.com"    # opsional: ganti email kamu biar APK dikirim otomatis
-        notify:
-          success: true
-          failure: true
