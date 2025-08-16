@@ -9,22 +9,35 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    container:
-      image: ghcr.io/reactivecircus/android-sdk:34.0.0
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure tools (unzip)
+        run: sudo apt-get update && sudo apt-get install -y unzip
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components + accept licenses
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platform-tools" "cmdline-tools;latest" \
+                               "platforms;android-34" "build-tools;34.0.0"
+
+      # ==== Extract the project (support ZIP upload) ====
       - name: Extract project from ZIP (if present)
         id: extract
+        shell: bash
         run: |
           set -e
-          if [ -f "GuruMaarifDH_v3.zip" ]; then
-            echo "Found ZIP v3, extracting..."
-            mkdir -p workspace
-            unzip -q GuruMaarifDH_v3.zip -d workspace
-          elif [ -f "GuruMaarifDH_v2.zip" ]; then
+          if [ -f "GuruMaarifDH_v2.zip" ]; then
             echo "Found ZIP v2, extracting..."
             mkdir -p workspace
             unzip -q GuruMaarifDH_v2.zip -d workspace
@@ -33,26 +46,14 @@ jobs:
             mkdir -p workspace
             unzip -q GuruMaarifDH.zip -d workspace
           else
-            echo "No ZIP found, assuming repo already has sources."
+            echo "No ZIP found, assume repo already has sources."
             mkdir -p workspace && cp -r . workspace/src || true
           fi
 
+          # Locate the Gradle project (folder containing settings.gradle)
           PROJECT_DIR=$(dirname $(find workspace -maxdepth 4 -name settings.gradle -print -quit))
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
-          test -n "$PROJECT_DIR" && echo "Project dir: $PROJECT_DIR"
-
-      - name: Ensure gradle.properties
-        run: |
-          cd "${{ steps.extract.outputs.project_dir }}"
-          if [ ! -f gradle.properties ]; then
-            cat > gradle.properties <<'PROP'
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
-org.gradle.daemon=false
-PROP
-          fi
-          cat gradle.properties
+          test -n "$PROJECT_DIR" && echo "Project: $PROJECT_DIR"
 
       - name: Generate Gradle Wrapper if missing
         run: |
