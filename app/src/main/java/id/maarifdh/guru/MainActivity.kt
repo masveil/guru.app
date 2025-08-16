@@ -1,3 +1,4 @@
+
 package id.maarifdh.guru
 
 import android.annotation.SuppressLint
@@ -10,7 +11,6 @@ import android.webkit.*
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import android.view.View
 
 class MainActivity : AppCompatActivity() {
 
@@ -71,15 +71,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                // Stop refresh indicator when loaded
                 if (newProgress >= 90) swipe.isRefreshing = false
                 super.onProgressChanged(view, newProgress)
             }
         }
 
-        swipe.setOnRefreshListener {
-            webView.reload()
-        }
+        swipe.setOnRefreshListener { webView.reload() }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
