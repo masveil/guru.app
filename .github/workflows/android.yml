@@ -37,7 +37,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ -f "GuruMaarifDH_v2.zip" ]; then
+          if [ -f "GuruMaarifDH_v3.zip" ]; then
+            echo "Found ZIP v3, extracting..."
+            mkdir -p workspace
+            unzip -q GuruMaarifDH_v3.zip -d workspace
+          elif [ -f "GuruMaarifDH_v2.zip" ]; then
             echo "Found ZIP v2, extracting..."
             mkdir -p workspace
             unzip -q GuruMaarifDH_v2.zip -d workspace
@@ -46,7 +50,7 @@ jobs:
             mkdir -p workspace
             unzip -q GuruMaarifDH.zip -d workspace
           else
-            echo "No ZIP found, assume repo already has sources."
+            echo "No ZIP found, assume sources already committed."
             mkdir -p workspace && cp -r . workspace/src || true
           fi
 
@@ -55,23 +59,33 @@ jobs:
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
           test -n "$PROJECT_DIR" && echo "Project: $PROJECT_DIR"
 
-      - name: Generate Gradle Wrapper if missing
+      # ==== Ensure gradle.properties (AndroidX on) ====
+      - name: Ensure gradle.properties (AndroidX on)
         run: |
           cd "${{ steps.extract.outputs.project_dir }}"
-          if [ ! -f "./gradlew" ]; then
-            echo "Gradle wrapper missing -> generating..."
-            curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
-            unzip -q gradle.zip -d $HOME/gradle
-            $HOME/gradle/gradle-8.7/bin/gradle wrapper --gradle-version 8.7
-          else
-            echo "Wrapper exists."
+          if [ ! -f gradle.properties ]; then
+            cat > gradle.properties <<'PROP'
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+org.gradle.daemon=false
+PROP
           fi
+          echo "---- gradle.properties ----"
+          cat gradle.properties
 
+      # ==== Install Gradle (no wrapper) ====
+      - name: Setup Gradle (no wrapper)
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      # ==== Build with 'gradle' (no ./gradlew) ====
       - name: Build Debug APK
         run: |
           cd "${{ steps.extract.outputs.project_dir }}"
-          chmod +x ./gradlew
-          ./gradlew --no-daemon assembleDebug
+          gradle --version
+          gradle --no-daemon assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
